@@ -13,7 +13,7 @@
 # * Else, we may be in an X11 session (test -n "$DISPLAY")
 #  * If gvim exists, use it instead of vim. Slimv will try to start an xterm
 #    for the server if necessary
-#  * Else, rerun visp instead of an xterm, which is assumed to exist
+#  * Else, rerun visp inside of an xterm, which is assumed to exist
 # * Else, run vim as-is and pray.
 
 # For Slimv by Tamas Kovaks, see:
