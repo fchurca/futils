@@ -1,0 +1,66 @@
+#! /bin/sh
+
+ends_with () {
+	echo "$1" | grep -q "$2\$"
+	return $?
+}
+
+command_exists () {
+	which "$1" >/dev/null
+	return $?
+}
+
+eecho () {
+	echo "$1" >&2
+}
+
+PRE=''
+POST=''
+# Avoid creating a separate SCRATCH buffer if no file given
+[ -z "$1" ] && CREATE_SCRATCH=' '
+[ -z "$CREATE_SCRATCH" ] && CREATE_SCRATCH="-c 'new' "
+
+# Create a SCRATCH buffer
+PRE="$CREATE_SCRATCH-c 'file SCRATCH' -c 'set filetype=lisp' "
+POST="-c 'wincmd w'"
+
+VIM_ARGUMENTS="$PRE -c 'wincmd v' -c 'execute SlimvConnectServer()' $POST"
+[ -n "$1" ] && VIM_ARGUMENTS="\"$1\" $VIM_ARGUMENTS"
+VISP_COMMAND="vim $VIM_ARGUMENTS"
+
+# shell-interactive-p
+#if [ -t 0 -o -p /dev/stdin ]; then
+if [ -t 0 ]; then
+	if [ -n "$STY" ]; then
+		eecho "Trying to start visp inside of an existing screen session"
+	elif [ -n "$TMUX" ]; then
+		eecho "Trying to start visp inside of an existing tmux session"
+	elif command_exists byobu; then
+		eecho "Trying to start visp inside of a new byobu session"
+		VISP_COMMAND="byobu $VISP_COMMAND"
+	elif command_exists screen; then
+		eecho "Trying to start visp inside of a new screen session"
+		VISP_COMMAND="screen $VISP_COMMAND"
+	elif command_exists tmux; then
+		eecho "Trying to start visp inside of a new tmux session"
+		VISP_COMMAND="tmux $VISP_COMMAND"
+	fi
+	# inside-x11-p
+elif [ -n "$DISPLAY" ]; then
+	if command_exists gvim; then
+		eecho "Trying to start visp in a gvim; Slimv will try to start an xterm"
+		VISP_COMMAND="g$VISP_COMMAND"
+	elif [ -z "$NESTED_VISP" ]; then
+		eecho "Trying to nest another visp in xterm"
+		NESTED_VISP=1
+		export NESTED_VISP
+		VISP_COMMAND="xterm -e $0"
+	fi
+else
+	# nothing-available
+	eecho "Trying to start visp by itself. Slimv may try to start an xterm, but it may not succeed!"
+fi
+
+eval "$VISP_COMMAND"
+exit $?
+
