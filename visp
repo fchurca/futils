@@ -1,5 +1,24 @@
 #! /bin/sh
 
+# visp
+# (c) Federico Churca-Torrusio 2016 <fchurca@fchurca.com.ar>
+# See LICENSE for BSD 3-clause license
+
+#  Open an instance of vim with a SCRATCH buffer and a connected Slimv
+# Precedence order: (TODO: make configurable)
+# * If running inside an interactive terminal (test -t 0):
+#  * Running inside an existing screen, tmux, or other screen-ish will rely on
+#    Slimv to start the server inside the same screen-ish if necessary
+#  * Else, if byobu, screen, or tmux are available, start vim inside it
+# * Else, we may be in an X11 session (test -n "$DISPLAY")
+#  * If gvim exists, use it instead of vim. Slimv will try to start an xterm
+#    for the server if necessary
+#  * Else, rerun visp instead of an xterm, which is assumed to exist
+# * Else, run vim as-is and pray.
+
+# For Slimv by Tamas Kovaks, see:
+# http://www.vim.org/scripts/script.php?script_id=2531
+
 ends_with () {
 	echo "$1" | grep -q "$2\$"
 	return $?
@@ -29,12 +48,13 @@ VIM_ARGUMENTS="$PRE -c 'wincmd v' -c 'execute SlimvConnectServer()' $POST"
 VISP_COMMAND="vim $VIM_ARGUMENTS"
 
 # shell-interactive-p
-#if [ -t 0 -o -p /dev/stdin ]; then
 if [ -t 0 ]; then
 	if [ -n "$STY" ]; then
 		eecho "Trying to start visp inside of an existing screen session"
 	elif [ -n "$TMUX" ]; then
 		eecho "Trying to start visp inside of an existing tmux session"
+	elif [ -n "$SCREEN" ]; then
+		eecho "Trying to start visp inside of an existing screen-ish"
 	elif command_exists byobu; then
 		eecho "Trying to start visp inside of a new byobu session"
 		VISP_COMMAND="byobu $VISP_COMMAND"
