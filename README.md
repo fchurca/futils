@@ -1,3 +1,7 @@
 # futils
 
-The purpose of this repository is to round up scripts and utilities that I have written for my convenience. Enjoy at your own risk. Suggestions, pull requests, and contributions welcome.
+The purpose of this repository is to round up scripts and utilities that I have written for my convenience. Suggestions, pull requests, and contributions welcome.
+
+Code by me is BSD-3-clause-licensed according to [LICENSE]. Contributions will be credited.
+
+Enjoy at your own risk.
