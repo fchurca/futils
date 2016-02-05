@@ -4,8 +4,18 @@
 # (c) Federico Churca-Torrusio 2016 <fchurca@fchurca.com.ar>
 # See LICENSE for BSD 3-clause license
 
-#  Open an instance of vim with a SCRATCH buffer and a connected Slimv
-# Precedence order: (TODO: make configurable)
+#  Open vim with a SCRATCH buffer and a connected Slimv, almost IDE-like
+# All arguments will be passed on to vim (assumed to be files)
+
+## Dependencies:
+# vim
+# slimv
+# tmux or screen (optional)
+# byobu (optional)
+# gvim (optional)
+# xterm (optional)
+
+## Precedence order: (TODO: make configurable)
 # * If running inside an interactive terminal (test -t 0):
 #  * Running inside an existing screen, tmux, or other screen-ish will rely on
 #    Slimv to start the server inside the same screen-ish if necessary
@@ -36,18 +46,24 @@ eecho () {
 PRE=''
 POST=''
 # Avoid creating a separate SCRATCH buffer if no file given
-[ -z "$1" ] && CREATE_SCRATCH=' '
-[ -z "$CREATE_SCRATCH" ] && CREATE_SCRATCH="-c 'new' "
+[ -z "$1" ] && CREATE_SCRATCH='' || CREATE_SCRATCH=' '
+[ -n "$CREATE_SCRATCH" ] && PRE="-c 'new'"
 
 # Create a SCRATCH buffer
-PRE="$CREATE_SCRATCH-c 'file SCRATCH' -c 'set filetype=lisp' "
-POST="-c 'wincmd w'"
+PRE="$PRE -c 'file SCRATCH' -c 'set filetype=lisp' "
+if [ -n "$CREATE_SCRATCH" ]; then
+	PRE="$PRE -c 'wincmd w'"
+	PRE="$PRE -c 'wincmd o'"
+else
+	POST="-c 'wincmd w'"
+fi
+PRE="$PRE -c 'wincmd v'"
 
-VIM_ARGUMENTS="$PRE -c 'wincmd v' -c 'execute SlimvConnectServer()' $POST"
-[ -n "$1" ] && VIM_ARGUMENTS="\"$1\" $VIM_ARGUMENTS"
+
+VIM_ARGUMENTS="$@ $PRE -c 'execute SlimvConnectServer()' $POST"
 VISP_COMMAND="vim $VIM_ARGUMENTS"
 
-# shell-interactive-p
+# or shell-interactive-p nested-visp-p
 if [ -t 0 ]; then
 	if [ -n "$STY" ]; then
 		eecho "Trying to start visp inside of an existing screen session"
@@ -68,7 +84,7 @@ if [ -t 0 ]; then
 	# inside-x11-p
 elif [ -n "$DISPLAY" ]; then
 	if command_exists gvim; then
-		eecho "Trying to start visp in a gvim; Slimv will try to start an xterm"
+		eecho "Trying to start visp in a gvim; Slimv may try to start an xterm"
 		VISP_COMMAND="g$VISP_COMMAND"
 	elif [ -z "$NESTED_VISP" ]; then
 		eecho "Trying to nest another visp in xterm"
