@@ -45,9 +45,15 @@ eecho () {
 
 PRE=''
 POST=''
+
+# Tell Vim to call SlimvQuitRepl() on exit
+# TODO: Make optional. Patch Slimv?
+# FIXME: gvim seems to honour this on :qall but not on Alt-F4
+PRE="$PRE -c 'autocmd VimLeave * call SlimvQuitRepl()'"
+
 # Avoid creating a separate SCRATCH buffer if no file given
 [ -z "$1" ] && CREATE_SCRATCH='' || CREATE_SCRATCH=' '
-[ -n "$CREATE_SCRATCH" ] && PRE="-c 'new'"
+[ -n "$CREATE_SCRATCH" ] && PRE="$PRE -c 'new'"
 
 # Create a SCRATCH buffer
 PRE="$PRE -c 'file SCRATCH' -c 'set filetype=lisp' "
