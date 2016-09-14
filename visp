@@ -29,11 +29,6 @@
 # For Slimv by Tamas Kovaks, see:
 # http://www.vim.org/scripts/script.php?script_id=2531
 
-ends_with () {
-	echo "$1" | grep -q "$2\$"
-	return $?
-}
-
 command_exists () {
 	which "$1" >/dev/null
 	return $?
@@ -43,65 +38,81 @@ eecho () {
 	echo "$1" >&2
 }
 
-PRE=''
-POST=''
+VISP_PRE=''
+VISP_POST=''
 
 # Tell Vim to call SlimvQuitRepl() on exit
 # TODO: Make optional. Patch Slimv?
-# FIXME: gvim seems to honour this on :qall but not on Alt-F4
-PRE="$PRE -c 'autocmd VimLeave * call SlimvQuitRepl()'"
+# FIXME: If two visps have their vims connected to the same swank, it may die
+# as soon as the first visp exits
+VISP_PRE="$VISP_PRE -c 'autocmd VimLeave * call SlimvQuitRepl()'"
 
 # Avoid creating a separate SCRATCH buffer if no file given
-[ -z "$1" ] && CREATE_SCRATCH='' || CREATE_SCRATCH=' '
-[ -n "$CREATE_SCRATCH" ] && PRE="$PRE -c 'new'"
+[ -z "$1" ] && VISP_CREATE_SCRATCH='' || VISP_CREATE_SCRATCH=' '
+[ -n "$VISP_CREATE_SCRATCH" ] && VISP_PRE="$VISP_PRE -c 'new'"
 
 # Create a SCRATCH buffer
-PRE="$PRE -c 'file SCRATCH' -c 'set filetype=lisp' "
-if [ -n "$CREATE_SCRATCH" ]; then
-	PRE="$PRE -c 'wincmd w'"
-	PRE="$PRE -c 'wincmd o'"
+VISP_PRE="$VISP_PRE -c 'file SCRATCH' -c 'set filetype=lisp' "
+if [ -n "$VISP_CREATE_SCRATCH" ]; then
+	VISP_PRE="$VISP_PRE -c 'wincmd w'"
+	VISP_PRE="$VISP_PRE -c 'wincmd o'"
 else
-	POST="-c 'wincmd w'"
+	VISP_POST="-c 'wincmd w'"
 fi
-PRE="$PRE -c 'wincmd v'"
+VISP_PRE="$VISP_PRE -c 'wincmd v'"
 
 
-VIM_ARGUMENTS="$@ $PRE -c 'execute SlimvConnectServer()' $POST"
+VIM_ARGUMENTS="$@ $VISP_PRE -c 'execute SlimvConnectServer()' $VISP_POST"
 VISP_COMMAND="vim $VIM_ARGUMENTS"
 
 # or shell-interactive-p nested-visp-p
 if [ -t 0 ]; then
-	if [ -n "$STY" ]; then
-		eecho "Trying to start visp inside of an existing screen session"
-	elif [ -n "$TMUX" ]; then
+	if [ -n "$TMUX" ]; then
 		eecho "Trying to start visp inside of an existing tmux session"
+	elif [ -n "$STY" ]; then
+		eecho "Trying to start visp inside of an existing screen session"
 	elif [ -n "$SCREEN" ]; then
 		eecho "Trying to start visp inside of an existing screen-ish"
-	elif command_exists byobu; then
-		eecho "Trying to start visp inside of a new byobu session"
-		VISP_COMMAND="byobu $VISP_COMMAND"
-	elif command_exists screen; then
-		eecho "Trying to start visp inside of a new screen session"
-		VISP_COMMAND="screen $VISP_COMMAND"
-	elif command_exists tmux; then
-		eecho "Trying to start visp inside of a new tmux session"
-		VISP_COMMAND="tmux $VISP_COMMAND"
+	elif [ -z "$VISP_NESTED" ]; then
+		if command_exists byobu; then
+			eecho "Trying to nest another visp inside of a new byobu session"
+			VISP_NESTED=1
+			. "$HOME/.byobu/backend"
+			case "$BYOBU_BACKEND" in
+				tmux)
+					VISP_COMMAND="byobu new-session -n visp '$0 $@'"
+					;;
+				screen|*)
+					VISP_COMMAND="byobu $0 $@"
+					;;
+			esac
+		elif command_exists screen; then
+			eecho "Trying to nest another visp inside of a new screen session"
+			VISP_NESTED=1
+			VISP_COMMAND="screen $0 $@"
+		elif command_exists tmux; then
+			eecho "Trying to nest another visp inside of a new tmux session"
+			VISP_NESTED=1
+			VISP_COMMAND="tmux -c $0 $@"
+		fi
 	fi
 	# inside-x11-p
 elif [ -n "$DISPLAY" ]; then
 	if command_exists gvim; then
 		eecho "Trying to start visp in a gvim; Slimv may try to start an xterm"
 		VISP_COMMAND="g$VISP_COMMAND"
-	elif [ -z "$NESTED_VISP" ]; then
+	elif [ -z "$VISP_NESTED" ]; then
 		eecho "Trying to nest another visp in xterm"
-		NESTED_VISP=1
-		export NESTED_VISP
-		VISP_COMMAND="xterm -e $0"
+		VISP_NESTED=1
+		export VISP_NESTED
+		VISP_COMMAND="xterm -e $0 $@"
 	fi
 else
 	# nothing-available
 	eecho "Trying to start visp by itself. Slimv may try to start an xterm, but it may not succeed!"
 fi
+
+eecho "Will run ${VISP_COMMAND}"
 
 eval "$VISP_COMMAND"
 exit $?
